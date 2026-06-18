@@ -1,0 +1,95 @@
+1.将元数据上传数据到hdfs：hdfs dfs -put shuju.txt /
+
+2.进入hive
+
+
+-- 创建原始数据ODS层
+create database if  not exists ods_user_info;
+
+-- 创建原始数据表
+CREATE TABLE IF NOT EXISTS ods_user_info.ods_user_data (
+  id INT COMMENT '记录ID',
+  user_id STRING COMMENT '用户ID',
+  age INT COMMENT '年龄',
+  gender STRING COMMENT '性别',
+  item_id INT COMMENT '物品ID',
+  behavior_type INT COMMENT '行为类型',
+  item_category INT COMMENT '物品类别',
+  `time` STRING COMMENT '时间',
+  province STRING COMMENT '省份'
+)ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'
+STORED AS TEXTFILE;
+
+-- 装载数据
+LOAD DATA INPATH '/shuju.txt' INTO TABLE ods_user_info.ods_user_data;
+
+-- 删除首行数据，一般第一行都是重复的列名
+alter table ods_user_info.ods_user_data set tblproperties('skip.header.line.count'='1');
+
+-- 创建数据明细层
+create database if  not exists dwd_user_info;
+
+-- 1.各省份明细
+CREATE TABLE dwd_user_info.dwd_user_part1 ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'AS
+select province  from ods_user_info.ods_user_data;
+
+-- 2.用户行为明细
+CREATE TABLE dwd_user_info.dwd_user_part2 ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'AS
+select behavior_type from ods_user_info.ods_user_data;
+
+-- 3.近期访问人数明细
+CREATE TABLE dwd_user_info.dwd_user_part3 ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'AS
+select concat_ws('-', CAST(month(`time`) AS STRING), CAST(day(`time`) AS STRING)) AS `date`
+from ods_user_info.ods_user_data;
+
+-- 4.用户消费明细
+CREATE TABLE dwd_user_info.dwd_user_part4 ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'AS
+select  user_id ,behavior_type from ods_user_info.ods_user_data;
+
+-- 5.用户年龄明细
+CREATE TABLE dwd_user_info.dwd_user_part5 ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'AS
+select age from ods_user_info.ods_user_data;
+
+-- 6. 不同日期男性和女性的购买量明细
+CREATE TABLE dwd_user_info.dwd_user_part6 ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'AS
+SELECT concat_ws('-', CAST(month(`time`) AS STRING), CAST(day(`time`) AS STRING)) AS `date`, gender
+FROM ods_user_info.ods_user_data;
+
+-- 7. 用户性别明细
+CREATE TABLE dwd_user_info.dwd_user_part7 ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'AS
+select gender from ods_user_info.ods_user_data;
+
+
+
+-- 创建分析层
+create database if  not exists ads_user_info;
+
+
+
+
+4.传输
+sqoop export --connect jdbc:mysql://localhost:3306/ubanalysis --username root --password 123456 --table demo1 --fields-terminated-by '\t' --input-fields-terminated-by '\t' --input-null-string '\\N' --input-null-non-string '\\N' --export-dir /user/hive/warehouse/ads_user_info.db/ads_user_part1
+sqoop export --connect jdbc:mysql://localhost:3306/ubanalysis --username root --password 123456 --table demo2 --fields-terminated-by '\t' --input-fields-terminated-by '\t' --input-null-string '\\N' --input-null-non-string '\\N' --export-dir /user/hive/warehouse/ads_user_info.db/ads_user_part2
+sqoop export --connect jdbc:mysql://localhost:3306/ubanalysis --username root --password 123456 --table demo3 --fields-terminated-by '\t' --input-fields-terminated-by '\t' --input-null-string '\\N' --input-null-non-string '\\N' --export-dir /user/hive/warehouse/ads_user_info.db/ads_user_part3
+sqoop export --connect jdbc:mysql://localhost:3306/ubanalysis --username root --password 123456 --table demo4 --fields-terminated-by '\t' --input-fields-terminated-by '\t' --input-null-string '\\N' --input-null-non-string '\\N' --export-dir /user/hive/warehouse/ads_user_info.db/ads_user_part4
+sqoop export --connect jdbc:mysql://localhost:3306/ubanalysis --username root --password 123456 --table demo5 --fields-terminated-by '\t' --input-fields-terminated-by '\t' --input-null-string '\\N' --input-null-non-string '\\N' --export-dir /user/hive/warehouse/ads_user_info.db/ads_user_part5
+sqoop export --connect jdbc:mysql://localhost:3306/ubanalysis --username root --password 123456 --table demo6 --fields-terminated-by '\t' --input-fields-terminated-by '\t' --input-null-string '\\N' --input-null-non-string '\\N' --export-dir /user/hive/warehouse/ads_user_info.db/ads_user_part6
+sqoop export --connect jdbc:mysql://localhost:3306/ubanalysis --username root --password 123456 --table demo7 --fields-terminated-by '\t' --input-fields-terminated-by '\t' --input-null-string '\\N' --input-null-non-string '\\N' --export-dir /user/hive/warehouse/ads_user_info.db/ads_user_part7
+
+
+
+
+
+
+
+
+完整代码+论文 以及更多大数据项目
+请联系   v：hjjy51888 mskj122

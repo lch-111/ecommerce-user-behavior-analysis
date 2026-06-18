@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  doris:
+    image: registry.cn-hangzhou.aliyuncs.com/freeoneplus/doris:2.0.12-all
+    container_name: doris
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - "8030:8030"   # Doris Web UI (HTTP)
+      - "9030:9030"   # MySQL protocol (Spring Boot 连这个)
+      - "8040:8040"   # BE HTTP (Stream Load)
+      - "9010:9010"   # FE internal
+      - "9050:9050"   # BE heartbeat
+      - "8060:8060"   # BE Brpc
+    volumes:
+      - doris-data:/opt/apache-doris/fe/doris-meta
+      - doris-storage:/opt/apache-doris/be/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysql", "-P9030", "-uroot", "-e", "SELECT 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+volumes:
+  doris-data:
+  doris-storage:
